@@ -1,48 +1,108 @@
 services:
-  backend:
-    build: ./backend
-    container_name: ${BACKEND_CONTAINER_NAME:-techkraft-backend}
+  postgres:
+    image: postgres:16
+    container_name: ${POSTGRES_CONTAINER_NAME:-techkraft-postgres}
+
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-techkraft}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-techkraft123}
+      POSTGRES_DB: ${POSTGRES_DB:-techkraft}
+
     ports:
-      - "${BACKEND_PORT}:8000"
+      - "${POSTGRES_PORT:-5432}:5432"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    networks:
+      - app-network
+
+    restart: unless-stopped
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-techkraft}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+
+    container_name: ${BACKEND_CONTAINER_NAME:-techkraft-backend}
+
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+
     volumes:
       - ./backend:/app
-      - backend_data:/app/data
+
     environment:
-      - DATABASE_URL=sqlite:///./data/app.db
-      - ENV=${ENV}
+      DATABASE_URL: ${DATABASE_URL}
+      ENV: ${ENV:-dev}
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
     command: >
-      sh -c "if [ \"$ENV\" = \"dev\" ]; 
-      then uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload; 
-      else uvicorn app.main:app --host 0.0.0.0 --port 8000; 
-      fi"
+      sh -c "
+      if [ \"$ENV\" = 'dev' ];
+      then
+        uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload;
+      else
+        uvicorn app.main:app --host 0.0.0.0 --port 8000;
+      fi
+      "
+
     networks:
-      - ${APP_NETWORK:-techkraft-net}
+      - app-network
+
     restart: unless-stopped
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+
     container_name: ${FRONTEND_CONTAINER_NAME:-techkraft-frontend}
+
     ports:
-      - "${FRONTEND_PORT}:5173"
+      - "${FRONTEND_PORT:-5173}:5173"
+
     volumes:
       - ./frontend:/app
       - /app/node_modules
+
     environment:
-      - VITE_API_URL=http://localhost:${BACKEND_PORT}
-      - ENV=${ENV}
-      - CHOKIDAR_USEPOLLING=true
+      VITE_API_URL: http://localhost:${BACKEND_PORT:-8000}
+      ENV: ${ENV:-dev}
+      CHOKIDAR_USEPOLLING: "true"
+
     command: >
-      sh -c "if [ \"$ENV\" = \"dev\" ]; 
-      then npm run dev -- --host 0.0.0.0; 
-      else npm run build && npm run preview -- --host 0.0.0.0; 
-      fi"
+      sh -c "
+      if [ \"$ENV\" = 'dev' ];
+      then
+        npm run dev -- --host 0.0.0.0;
+      else
+        npm run build &&
+        npm run preview -- --host 0.0.0.0;
+      fi
+      "
+
+    depends_on:
+      - backend
+
     networks:
-      - ${APP_NETWORK:-techkraft-net}
+      - app-network
+
     restart: unless-stopped
 
 volumes:
-  backend_data:
+  postgres_data:
 
 networks:
-  techkraft-net:
+  app-network:
+    name: ${APP_NETWORK:-techkraft-net}
     driver: bridge
