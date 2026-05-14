@@ -234,13 +234,9 @@ Full-stack API design
 Role-based authentication
 Candidate scoring workflow
 Async processing simulation
-Dockerized microservice setup
+Dockerized microservice setupa
 
 ---
 
-If you want next step, I can also:
-✔ :contentReference[oaicite:0]{index=0}
-✔ or :contentReference[oaicite:1]{index=1}
-✔ or **:contentReference[oaicite:2]{index=2}**
 
 
