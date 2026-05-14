@@ -1,6 +1,7 @@
 services:
   postgres:
     image: postgres:16
+
     container_name: ${POSTGRES_CONTAINER_NAME:-techkraft-postgres}
 
     environment:
@@ -13,6 +14,9 @@ services:
 
     volumes:
       - postgres_data:/var/lib/postgresql/data
+
+     
+      - ./backend/data:/docker-entrypoint-initdb.d
 
     networks:
       - app-network
