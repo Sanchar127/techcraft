@@ -1,0 +1,48 @@
+services:
+  backend:
+    build: ./backend
+    container_name: ${BACKEND_CONTAINER_NAME:-techkraft-backend}
+    ports:
+      - "${BACKEND_PORT}:8000"
+    volumes:
+      - ./backend:/app
+      - backend_data:/app/data
+    environment:
+      - DATABASE_URL=sqlite:///./data/app.db
+      - ENV=${ENV}
+    command: >
+      sh -c "if [ \"$ENV\" = \"dev\" ]; 
+      then uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload; 
+      else uvicorn app.main:app --host 0.0.0.0 --port 8000; 
+      fi"
+    networks:
+      - ${APP_NETWORK:-techkraft-net}
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    container_name: ${FRONTEND_CONTAINER_NAME:-techkraft-frontend}
+    ports:
+      - "${FRONTEND_PORT}:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - VITE_API_URL=http://localhost:${BACKEND_PORT}
+      - ENV=${ENV}
+      - CHOKIDAR_USEPOLLING=true
+    command: >
+      sh -c "if [ \"$ENV\" = \"dev\" ]; 
+      then npm run dev -- --host 0.0.0.0; 
+      else npm run build && npm run preview -- --host 0.0.0.0; 
+      fi"
+    networks:
+      - ${APP_NETWORK:-techkraft-net}
+    restart: unless-stopped
+
+volumes:
+  backend_data:
+
+networks:
+  techkraft-net:
+    driver: bridge
